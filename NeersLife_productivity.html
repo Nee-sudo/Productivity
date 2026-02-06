@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smooth Line Animation with Visible Dots</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+
+<style>
+body{
+  font-family: Arial, sans-serif;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  height:100vh;
+  margin:0;
+  background:#f4f4f4;
+}
+canvas{
+  max-width:90vw;
+  max-height:80vh;
+}
+</style>
+</head>
+
+<body>
+
+<canvas id="heartbeatChart"></canvas>
+
+<script>
+
+const SHEET_URL =
+"https://docs.google.com/spreadsheets/d/1ocnFi7S8d2a_HEv-3qXASBY9lUFcCqV6I0Z5-BY3JMY/gviz/tq?tqx=out:csv";
+
+// ---------------- LOAD GOOGLE SHEET ----------------
+async function loadSheetData(){
+  const res = await fetch(SHEET_URL);
+  const text = await res.text();
+  const rows = text.trim().split("\n").slice(1);
+
+  const labels=[];
+  const work=[];
+  const completed=[];
+  const pending=[];
+
+  rows.forEach(row=>{
+    const cols = row
+      .split(",")
+      .map(v => v.replace(/"/g,"").trim());
+
+    labels.push(cols[0]);
+    work.push(Number(cols[1]));
+    completed.push(Number(cols[2]));
+    pending.push(Number(cols[3]));
+  });
+
+  return {labels, work, completed, pending};
+}
+
+// ---------------- REVEAL PLUGIN ----------------
+const revealPlugin = {
+  id:'reveal',
+  beforeDatasetDraw(chart,args){
+    const {ctx, chartArea:{left,right,top,bottom}} = chart;
+    const progress = chart._revealProgress || 0;
+
+    if(args.meta.type === "line"){
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(left, top, (right-left)*progress, bottom-top);
+      ctx.clip();
+    }
+  },
+  afterDatasetDraw(chart,args){
+    if(args.meta.type === "line"){
+      chart.ctx.restore();
+    }
+  }
+};
+
+// ---------------- BUILD CHART ----------------
+const ctx = document
+  .getElementById("heartbeatChart")
+  .getContext("2d");
+
+loadSheetData().then(({labels,work,completed,pending})=>{
+
+const data={
+  labels,
+  datasets:[
+    {
+      label:"Number of Work",
+      data:work,
+      borderColor:"#FF5733",
+      backgroundColor:"#FF5733",
+      fill:false,
+      tension:0.3,
+      pointRadius:5
+    },
+    {
+      label:"Completed",
+      data:completed,
+      borderColor:"#33FF57",
+      backgroundColor:"#33FF57",
+      fill:false,
+      tension:0.3,
+      pointRadius:5
+    },
+    {
+      label:"Pending",
+      data:pending,
+      borderColor:"#3357FF",
+      backgroundColor:"#3357FF",
+      fill:false,
+      tension:0.3,
+      pointRadius:5
+    }
+  ]
+};
+
+const chart = new Chart(ctx,{
+  type:"line",
+  data,
+  options:{
+    responsive:true,
+    animation:false,
+    layout:{
+      padding:{left:20,right:20,top:10,bottom:10}
+    },
+    plugins:{
+      legend:{position:"top"},
+      title:{
+        display:true,
+        text:"2025 Productivity Challenge",
+        font:{size:18}
+      }
+    },
+    scales:{
+      x:{title:{display:true,text:"Date"}},
+      y:{
+        title:{display:true,text:"Task Count"},
+        beginAtZero:true,
+        ticks:{stepSize:1}
+      }
+    }
+  },
+  plugins:[revealPlugin]
+});
+
+// ---------------- ANIMATE REVEAL ----------------
+let progress=0;
+function animate(){
+  progress+=0.004;
+  if(progress<=1){
+    chart._revealProgress=progress;
+    chart.update();
+    requestAnimationFrame(animate);
+  }
+}
+animate();
+
+});
+
+</script>
+
+</body>
+</html>
